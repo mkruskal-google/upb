@@ -556,22 +556,6 @@ static PyObject* PyUpb_Message_NewStub(PyObject* parent, const upb_FieldDef* f,
   return &msg->ob_base;
 }
 
-static bool PyUpb_Message_IsEqual(PyUpb_Message* m1, PyObject* _m2) {
-  PyUpb_Message* m2 = (void*)_m2;
-  if (m1 == m2) return true;
-  if (!PyObject_TypeCheck(_m2, m1->ob_base.ob_type)) {
-    return false;
-  }
-  const upb_MessageDef* m1_msgdef = _PyUpb_Message_GetMsgdef(m1);
-#ifndef NDEBUG
-  const upb_MessageDef* m2_msgdef = _PyUpb_Message_GetMsgdef(m2);
-  assert(m1_msgdef == m2_msgdef);
-#endif
-  const upb_Message* m1_msg = PyUpb_Message_GetIfReified((PyObject*)m1);
-  const upb_Message* m2_msg = PyUpb_Message_GetIfReified(_m2);
-  return upb_Message_IsEqual(m1_msg, m2_msg, m1_msgdef);
-}
-
 static const upb_FieldDef* PyUpb_Message_InitAsMsg(PyUpb_Message* m,
                                                    upb_Arena* arena) {
   const upb_FieldDef* f = PyUpb_Message_GetFieldDef(m);
@@ -657,6 +641,33 @@ static void PyUpb_Message_Reify(PyUpb_Message* self, const upb_FieldDef* f,
   self->ptr.msg = msg;  // Overwrites self->ptr.parent
   self->def = (uintptr_t)upb_FieldDef_MessageSubDef(f);
   PyUpb_Message_SyncSubobjs(self);
+}
+
+static bool PyUpb_Message_IsEqual(PyUpb_Message* m1, PyObject* _m2) {
+  PyUpb_Message* m2 = (void*)_m2;
+  if (m1 == m2) return true;
+  if (!PyObject_TypeCheck(_m2, m1->ob_base.ob_type)) {
+    return false;
+  }
+  const upb_MessageDef* m1_msgdef = _PyUpb_Message_GetMsgdef(m1);
+#ifndef NDEBUG
+  const upb_MessageDef* m2_msgdef = _PyUpb_Message_GetMsgdef(m2);
+  assert(m1_msgdef == m2_msgdef);
+#endif
+
+  const upb_Message* m1_msg = PyUpb_Message_GetIfReified((PyObject*)m1);
+  if (!m1_msg) {
+    PyUpb_Message_Reify(m1, PyUpb_Message_GetFieldDef(m1), NULL);
+    m1_msg = PyUpb_Message_GetIfReified((PyObject*)m1);
+  }
+
+  const upb_Message* m2_msg = PyUpb_Message_GetIfReified(_m2);
+  if (!m2_msg) {
+    PyUpb_Message_Reify(m2, PyUpb_Message_GetFieldDef(m2), NULL);
+    m2_msg = PyUpb_Message_GetIfReified((PyObject*)m2);
+  }
+
+  return upb_Message_IsEqual(m1_msg, m2_msg, m1_msgdef);
 }
 
 /*
