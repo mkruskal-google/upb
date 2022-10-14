@@ -5,27 +5,23 @@ load("@system_python//:version.bzl", "SYSTEM_PYTHON_VERSION")
 
 def _get_suffix(limited_api, python_version, cpu):
     """Computes an ABI version tag for an extension module per PEP 3149."""
-    suffix = "pyd" if ("win" in cpu) else "so"
-
-    if limited_api == True:
-        if "win" not in cpu:
-            suffix = "abi3." + suffix
-        return "." + suffix
-
     if "win32" in cpu or "win64" in cpu:
+        if limited_api == True:
+            return ".pyd"
         if "win32" in cpu:
             abi = "win32"
         elif "win64" in cpu:
             abi = "win_amd64"
         else:
             fail("Unsupported CPU: " + cpu)
-        return ".cp{}-{}.{}".format(python_version, abi, suffix)
+        return ".cp{}-{}.{}".format(python_version, abi, "pyd")
 
     if python_version == "system":
         python_version = SYSTEM_PYTHON_VERSION
         if int(python_version) < 38:
             python_version += "m"
         abis = {
+            "darwin_arm64": "darwin",
             "darwin": "darwin",
             "osx-x86_64": "darwin",
             "osx-aarch_64": "darwin",
@@ -34,7 +30,7 @@ def _get_suffix(limited_api, python_version, cpu):
             "k8": "x86_64-linux-gnu",
         }
 
-        return ".cpython-{}-{}.{}".format(python_version, abis[cpu], suffix)
+        return ".cpython-{}-{}.{}".format(python_version, abis[cpu], "so" if (limited_api == True) else "abi3.so")
 
     fail("Unsupported combination of flags")
 
